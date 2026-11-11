@@ -50,7 +50,7 @@
   .menu small{display:block;color:var(--muted);font-size:12px}
   .menu hr{border:none;border-top:1px solid var(--line);margin:5px 0}
 
-  main{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0}
+  main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:0}
   .left{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);background:var(--panel)}
   .right{min-height:0;overflow:auto;background:var(--paper)}
 
@@ -100,7 +100,7 @@
 
   .mobile-switch{display:none}
   @media (max-width:780px){
-    main{grid-template-columns:1fr}
+    main{grid-template-columns:minmax(0,1fr)}
     .left,.right{display:none}
     body.view-write .left{display:flex}
     body.view-preview .right{display:block}
@@ -251,7 +251,7 @@ const $ = s => document.querySelector(s);
 const ed = $('#ed'), preview = $('#preview');
 
 /* ================= defaults ================= */
-const RULES_VERSION = 2;
+const RULES_VERSION = 3;
 const DEFAULT_MACROS = [
   {name:'R',args:0,body:R`\mathbb{R}`},
   {name:'N',args:0,body:R`\mathbb{N}`},
@@ -275,6 +275,12 @@ const DEFAULT_MACROS = [
   {name:'ceil',args:1,body:R`\left\lceil #1 \right\rceil`},
   {name:'set',args:1,body:R`\left\{ #1 \right\}`},
   {name:'qed',args:0,body:R`\quad\blacksquare`},
+  {name:'hyperfact',args:1,body:R`\operatorname{H}(#1)`},
+  {name:'superfact',args:1,body:R`\operatorname{sf}(#1)`},
+  {name:'subfact',args:1,body:R`{!}#1`},
+  {name:'primorial',args:1,body:R`#1\#`},
+  {name:'tet',args:2,body:R`{}^{#2}#1`},
+  {name:'multdiv',args:0,body:R`\divideontimes`},
 ];
 const DEFAULT_SHORTS = [
   {from:'<=>',to:R`\iff`},
@@ -330,6 +336,16 @@ $$int_0^1 (2x) dx = [x^2]_0^1 = 1$$
 
 $$A = \mat{1,2;3,4}, \quad \det A = \vmat{1,2;3,4} = -2, \quad \aug{1,2|5;3,4|6}$$
 
+## Alphabets and oddities
+
+$$\Greek{}$$
+
+$$\Fraktur{}$$
+
+$$\bb{} \qquad \Script{} \qquad \Cal{}$$
+
+Knuth arrows: $\knuth{3}{2}{4} = 3^{3^{3^3}}$. Hyperfactorial: $\hyperfact{n} = prod_{k=1}^{n} k^k$. Also $\subfact{n}$, $\primorial{p}$, $\tet{a}{b}$ and $\multdiv$.
+
 ## Q2, the slick way
 
 Let $I = int_0^{pi/2} \frac{sin x}{sin x + cos x} dx$. Substituting $u = \frac{pi}{2} - x$ (so the limits swap and $\d u = -\d x$) gives
@@ -353,9 +369,14 @@ if (!state || !Array.isArray(state.sheets) || !state.sheets.length) {
   state = { sheets:[{id:uid(), title:'Welcome', text:STARTER}], current:null, palette:false, ptab:1 };
   state.current = state.sheets[0].id;
 }
-if (state.rulesVersion !== RULES_VERSION) {
-  state.macros = clone(DEFAULT_MACROS); state.shorts = clone(DEFAULT_SHORTS); state.rulesVersion = RULES_VERSION;
+if (!state.macros || !state.shorts || (state.rulesVersion||0) < 2) {
+  state.macros = clone(DEFAULT_MACROS); state.shorts = clone(DEFAULT_SHORTS);
+} else if (state.rulesVersion < RULES_VERSION) {
+  // keep the user's own rules, just add any new defaults they don't have yet
+  for (const m of DEFAULT_MACROS) if (!state.macros.some(x=>x.name===m.name)) state.macros.push(clone(m));
+  for (const t of DEFAULT_SHORTS) if (!state.shorts.some(x=>x.from===t.from)) state.shorts.push(clone(t));
 }
+state.rulesVersion = RULES_VERSION;
 const cur = () => state.sheets.find(s=>s.id===state.current) || state.sheets[0];
 let saveTimer;
 function save(){
@@ -425,12 +446,37 @@ function augmented(arg, depth){
   return `\\left(\\begin{array}{${'c'.repeat(nL)}|${'c'.repeat(nR)}} ${body} \\end{array}\\right)`;
 }
 const evalBr = (F,a,b) => `\\left[ ${F} \\right]_{${a}}^{${b}}`;
+const AZ='ABCDEFGHIJKLMNOPQRSTUVWXYZ', az=AZ.toLowerCase();
+// Greek from Latin keys (old "Symbol font" layout): q=θ, c=χ, y=ψ, w=ω, x=ξ, v=ς (final sigma), j=ϕ
+const GREEK = {a:'\\alpha',b:'\\beta',g:'\\gamma',d:'\\delta',e:'\\epsilon',z:'\\zeta',h:'\\eta',q:'\\theta',i:'\\iota',k:'\\kappa',l:'\\lambda',m:'\\mu',n:'\\nu',x:'\\xi',o:'o',p:'\\pi',r:'\\rho',s:'\\sigma',v:'\\varsigma',t:'\\tau',u:'\\upsilon',f:'\\phi',j:'\\varphi',c:'\\chi',y:'\\psi',w:'\\omega',
+  A:'\\mathrm{A}',B:'\\mathrm{B}',G:'\\Gamma',D:'\\Delta',E:'\\mathrm{E}',Z:'\\mathrm{Z}',H:'\\mathrm{H}',Q:'\\Theta',I:'\\mathrm{I}',K:'\\mathrm{K}',L:'\\Lambda',M:'\\mathrm{M}',N:'\\mathrm{N}',X:'\\Xi',O:'\\mathrm{O}',P:'\\Pi',R:'\\mathrm{P}',S:'\\Sigma',T:'\\mathrm{T}',U:'\\Upsilon',F:'\\Phi',C:'\\mathrm{X}',Y:'\\Psi',W:'\\Omega'};
+const GREEK_ORDER_L='abgdezhqiklmnxoprsvtufcyw', GREEK_ORDER_U='ABGDEZHQIKLMNXOPRSTUFCYW';
+function greek(arg){
+  const keys = arg.trim() ? arg : null;
+  if (!keys) return '\\begin{gathered} '+[...GREEK_ORDER_L].map(k=>GREEK[k]).join('\\,')+' \\\\ '+[...GREEK_ORDER_U].map(k=>GREEK[k]).join('\\,')+' \\end{gathered}';
+  return [...keys].map(ch=>GREEK[ch] ? GREEK[ch]+' ' : ch).join('').trim();
+}
+const alphabet = (cmd, arg, lower, d) => arg.trim() ? `\\${cmd}{${expand(arg,d+1)}}` : (lower ? `\\begin{gathered} \\${cmd}{${AZ}} \\\\ \\${cmd}{${az}} \\end{gathered}` : `\\${cmd}{${AZ}}`);
+function knuth(a,n,b,d){
+  const k = parseInt(n,10);
+  const arrows = (String(k)===n.trim() && k>=1 && k<=4) ? '\\uparrow'.repeat(k) : `\\uparrow^{${expand(n,d+1)}}`;
+  return `${expand(a,d+1)} ${arrows} ${expand(b,d+1)}`;
+}
 const BUILTINS = {
   mat:  {n:1, f:(a,d)=>matrix(a,'pmatrix',d)},
   bmat: {n:1, f:(a,d)=>matrix(a,'bmatrix',d)},
   vmat: {n:1, f:(a,d)=>matrix(a,'vmatrix',d)},
   aug:  {n:1, f:(a,d)=>augmented(a,d)},
   eval: {n:3, f:(F,a,b,d)=>evalBr(expand(F,d+1),expand(a,d+1),expand(b,d+1))},
+  at:   {n:3, f:(F,a,b,d)=>`\\left. ${expand(F,d+1)} \\right|_{${expand(a,d+1)}}^{${expand(b,d+1)}}`},
+  Greek:{n:1, f:(a)=>greek(a)},
+  Fraktur:{n:1, f:(a,d)=>alphabet('mathfrak',a,true,d)},
+  Blackboard:{n:1, f:(a,d)=>alphabet('mathbb',a,false,d)},
+  DoubleStruck:{n:1, f:(a,d)=>alphabet('mathbb',a,false,d)},
+  bb:   {n:1, f:(a,d)=>alphabet('mathbb',a,false,d)},
+  Script:{n:1, f:(a,d)=>alphabet('mathscr',a,false,d)},
+  Cal:  {n:1, f:(a,d)=>alphabet('mathcal',a,false,d)},
+  knuth:{n:3, f:(a,n,b,d)=>knuth(a,n,b,d)},
 };
 const TEXTCMDS = new Set(['text','textbf','textit','textrm','textsf','texttt','mbox','operatorname','mathrm','label','begin','end']);
 const SIZERS = /\\(left|right|big|Big|bigg|Bigg)[lr]?\s*$/;
@@ -619,7 +665,16 @@ ${body.trim()}
 /* ================= palette ================= */
 const simple = s => s.trim().split(/\s+/).map(t=>[t,t]);
 const PALETTE = [
-  {name:'Greek', items: simple(R`\alpha \beta \gamma \delta \epsilon \varepsilon \zeta \eta \theta \vartheta \iota \kappa \lambda \mu \nu \xi \pi \rho \sigma \tau \upsilon \phi \varphi \chi \psi \omega \Gamma \Delta \Theta \Lambda \Xi \Pi \Sigma \Phi \Psi \Omega`)},
+  {name:'Greek', items: simple(R`\alpha \beta \gamma \delta \epsilon \varepsilon \zeta \eta \theta \vartheta \iota \kappa \varkappa \lambda \mu \nu \xi o \pi \varpi \rho \varrho \sigma \varsigma \tau \upsilon \phi \varphi \chi \psi \omega \digamma \mathrm{A} \mathrm{B} \Gamma \Delta \mathrm{E} \mathrm{Z} \mathrm{H} \Theta \mathrm{I} \mathrm{K} \Lambda \mathrm{M} \mathrm{N} \Xi \mathrm{O} \Pi \mathrm{P} \Sigma \mathrm{T} \Upsilon \Phi \mathrm{X} \Psi \Omega`)},
+  {name:'Fraktur 𝔄', items: [...AZ, ...az].map(c=>['\\mathfrak{'+c+'}','\\mathfrak{'+c+'}'])},
+  {name:'Blackboard 𝔸', items: [...AZ].map(c=>['\\mathbb{'+c+'}','\\mathbb{'+c+'}']).concat([[R`\Bbbk`,R`\Bbbk`]])},
+  {name:'Script & Cal 𝒜', items: [...AZ].map(c=>['\\mathscr{'+c+'}','\\mathscr{'+c+'}']).concat([...AZ].map(c=>['\\mathcal{'+c+'}','\\mathcal{'+c+'}']))},
+  {name:'Special', items: [
+    [R`a\uparrow\uparrow b`, R`\knuth{‸}{2}{}`, 'wide'], [R`a\uparrow^{n} b`, R`\knuth{‸}{n}{}`, 'wide'], [R`{}^{b}a`, R`\tet{‸}{}`],
+    [R`\operatorname{H}(n)`, R`\hyperfact{‸}`, 'wide'], [R`\operatorname{sf}(n)`, R`\superfact{‸}`, 'wide'],
+    [R`n!`, R`!`], [R`n!!`, R`!!`], [R`{!}n`, R`\subfact{‸}`], [R`n\#`, R`\primorial{‸}`],
+    [R`\divideontimes`, R`\divideontimes`], [R`\left.F\right|_a^b`, R`\at{‸}{}{}`, 'wide'], [R`\left[F\right]_a^b`, R`[‸]_{}^{}`, 'wide'],
+  ]},
   {name:'Structures', items: [
     [R`\frac{\square}{\square}`, R`\frac{‸}{}`], [R`\sqrt{\square}`, R`\sqrt{‸}`], [R`\sqrt[\square]{\square}`, R`\sqrt[‸]{}`],
     [R`\square^{\square}`, R`^{‸}`], [R`\square_{\square}`, R`_{‸}`], [R`\binom{\square}{\square}`, R`\binom{‸}{}`],
@@ -639,7 +694,7 @@ const PALETTE = [
     [R`\mathrm{d}x`, R`\d ‸`],
     ...simple(R`\ln \log \exp \sin \cos \tan \sec \csc \cot \arcsin \arccos \arctan \sinh \cosh \tanh \max \min \sup \inf \det \gcd \deg`)
   ]},
-  {name:'Operators', items: simple(R`+ - \pm \mp \times \div \cdot \circ \ast \bullet \oplus \otimes \cup \cap \setminus \nabla \partial \dagger \star ! '`)},
+  {name:'Operators', items: simple(R`+ - \pm \mp \times \div \cdot \circ \ast \bullet \oplus \otimes \cup \cap \setminus \nabla \partial \dagger \star \divideontimes ! '`)},
   {name:'Relations', items: simple(R`= \neq < > \leq \geq \ll \gg \approx \not\approx \equiv \not\equiv \sim \simeq \cong \ncong \propto \mid \nmid \parallel \perp`).concat([[R`\pmod{n}`, R`\pmod{‸}`]])},
   {name:'Sets & logic', items: simple(R`\in \notin \ni \subset \subseteq \subsetneq \supset \supseteq \varnothing \forall \exists \nexists \neg \land \lor \implies \impliedby \iff \therefore \because \infty \aleph_0 \mathbb{N} \mathbb{Z} \mathbb{Q} \mathbb{R} \mathbb{C} \mathbb{H} \mathbb{O} \mathbb{S} \mathfrak{R} \mathfrak{I} \top \bot \vdash \models`)},
   {name:'Arrows', items: simple(R`\to \rightarrow \leftarrow \leftrightarrow \Rightarrow \Leftarrow \Leftrightarrow \mapsto \longrightarrow \longmapsto \hookrightarrow \twoheadrightarrow \uparrow \downarrow \nearrow \searrow \rightleftharpoons`)},
@@ -880,6 +935,12 @@ const BUILTIN_DOCS = [
   [R`\vmat{1,2;3,4}`, 'Determinant bars.'],
   [R`\aug{1,2|5;3,4|6}`, 'Augmented matrix: the bar marks the divider.'],
   [R`[x^2]_0^1`, 'Evaluation brackets, sized to fit. Also \\eval{x^2}{0}{1}.'],
+  [R`\at{x^2}{0}{1}`, 'The other evaluation style: a vertical bar with limits.'],
+  [R`\Greek{abgd}`, 'Greek from Latin keys. q=θ, c=χ, y=ψ, w=ω, x=ξ, j=ϕ, v=ς (final sigma); capitals for capitals. \\Greek{} shows the lot.'],
+  [R`\Fraktur{g}`, 'Fraktur. \\Fraktur{} shows the whole alphabet.'],
+  [R`\bb{R}`, 'Blackboard bold (also \\Blackboard, \\DoubleStruck). \\bb{} shows A to Z.'],
+  [R`\Script{L}`, 'Script capitals. \\Cal{} gives calligraphic.'],
+  [R`\knuth{3}{2}{4}`, 'Knuth up-arrows: base, number of arrows, exponent. 5 or more arrows (or n) uses the ↑ⁿ form.'],
 ];
 function drawRules(){
   const br=$('#builtinRows'); br.innerHTML='';
