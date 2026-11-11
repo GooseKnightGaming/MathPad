@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MathPad</title>
+<meta name="theme-color" content="#0f6b63">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#f3f1ec; --panel:#ffffff; --paper:#fffdf8; --ink:#1f1d1a; --muted:#6b665e;
+    --line:#e2ded5; --accent:#0f6b63; --accent-soft:#e3f1ef; --danger:#b42318; --chip:#f6f4ef;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#17171a; --panel:#1f1f23; --paper:#1c1c20; --ink:#ecebe7; --muted:#a29e96;
+      --line:#34343a; --accent:#5ec4b8; --accent-soft:#1d3532; --danger:#f97066; --chip:#26262b;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font:14px/1.45 Inter,system-ui,sans-serif;display:flex;flex-direction:column}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  code,kbd,.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+
+  header{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .brand{font-weight:600;margin-right:6px;display:flex;align-items:center;gap:6px}
+  .brand b{font-family:"Source Serif 4",serif;font-style:italic;font-size:18px;color:var(--accent)}
+  .grow{flex:1}
+  .btn{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 11px;line-height:1.2;white-space:nowrap}
+  .btn:hover{border-color:var(--accent)}
+  .btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.danger{color:var(--danger)}
+  .btn.danger.armed{background:var(--danger);color:#fff;border-color:var(--danger)}
+  select.btn{max-width:200px}
+  .title-in{border:1px solid transparent;background:transparent;border-radius:8px;padding:6px 8px;font-weight:600;min-width:120px;max-width:260px}
+  .title-in:hover,.title-in:focus{border-color:var(--line);outline:none;background:var(--bg)}
+  .sep{width:1px;height:22px;background:var(--line);margin:0 2px}
+
+  .menuwrap{position:relative}
+  .menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.18);padding:6px;min-width:240px;display:none;z-index:5}
+  .menu.open{display:block}
+  .menu button{display:block;width:100%;text-align:left;border:none;background:transparent;padding:8px 10px;border-radius:6px}
+  .menu button:hover{background:var(--accent-soft)}
+  .menu small{display:block;color:var(--muted);font-size:12px}
+  .menu hr{border:none;border-top:1px solid var(--line);margin:5px 0}
+
+  main{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0}
+  .left{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);background:var(--panel)}
+  .right{min-height:0;overflow:auto;background:var(--paper)}
+
+  .palette{border-bottom:1px solid var(--line);display:none;flex-direction:column;max-height:50%}
+  .palette.open{display:flex}
+  .ptabs{display:flex;gap:4px;padding:8px 10px 6px;overflow-x:auto;scrollbar-width:thin;flex-shrink:0}
+  .ptab{border:none;background:transparent;padding:5px 10px;border-radius:999px;color:var(--muted);white-space:nowrap}
+  .ptab.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:5px;padding:4px 10px 10px;overflow:auto}
+  .pbtn{min-height:44px;border:1px solid var(--line);background:var(--chip);border-radius:8px;display:flex;align-items:center;justify-content:center;padding:4px;overflow:hidden}
+  .pbtn:hover{border-color:var(--accent);background:var(--accent-soft)}
+  .pbtn.wide{grid-column:span 2}
+  .pbtn mjx-container{margin:0!important;max-width:100%}
+  .pbtn svg{max-width:100%;height:auto;max-height:36px}
+  .pempty{padding:10px 12px 14px;color:var(--muted)}
+
+  /* matrix picker */
+  .mpick{display:flex;gap:18px;flex-wrap:wrap;padding:6px 12px 12px;overflow:auto}
+  .mgrid{display:grid;grid-template-columns:repeat(6,24px);gap:3px}
+  .mcell{width:24px;height:24px;border:1px solid var(--line);border-radius:4px;background:var(--chip);padding:0}
+  .mcell.hl{background:var(--accent-soft);border-color:var(--accent)}
+  .mside{display:flex;flex-direction:column;gap:8px;min-width:180px}
+  .mside .lbl{font-weight:600;font-size:15px}
+  .mstyles{display:flex;gap:5px;flex-wrap:wrap}
+  .mstyles .btn{padding:4px 8px;min-height:40px}
+  .mstyles svg{max-height:30px}
+  .mhint{color:var(--muted);font-size:12px;max-width:300px}
+
+  textarea#ed{flex:1;resize:none;border:none;outline:none;padding:16px 18px;background:transparent;font:14px/1.6 "JetBrains Mono",ui-monospace,monospace;tab-size:2;min-height:0}
+  .status{font-size:12px;color:var(--muted);padding:6px 14px;border-top:1px solid var(--line);display:flex;gap:12px;flex-wrap:wrap}
+  .status kbd{font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--chip)}
+
+  #preview{max-width:760px;margin:0 auto;padding:28px 34px 80px;font:17px/1.65 "Source Serif 4",Georgia,serif}
+  #preview h2{font-size:24px;margin:1.1em 0 .4em;font-weight:600}
+  #preview h3{font-size:19px;margin:1em 0 .3em;font-weight:600}
+  #preview h4{font-size:17px;margin:1em 0 .3em;font-weight:600}
+  #preview p{margin:.6em 0}
+  #preview ul{margin:.5em 0;padding-left:1.4em}
+  #preview code{font-size:.85em;background:var(--chip);border:1px solid var(--line);padding:0 4px;border-radius:4px}
+  #preview .m.disp{display:block;margin:.7em 0;overflow-x:auto;overflow-y:hidden;padding:2px 0}
+  #preview .m.raw{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--muted)}
+  #preview mjx-container[display="true"]{margin:0!important}
+  #preview .placeholder{color:var(--muted);font-style:italic}
+  mjx-container{position:relative}
+  mjx-assistive-mml{position:absolute!important;top:0;left:0;clip:rect(1px,1px,1px,1px);padding:1px 0 0 0!important;border:0!important;height:1px!important;width:1px!important;overflow:hidden!important;display:block!important;user-select:none}
+  mjx-merror,[data-mjx-error]{color:var(--danger)!important}
+
+  .mobile-switch{display:none}
+  @media (max-width:780px){
+    main{grid-template-columns:1fr}
+    .left,.right{display:none}
+    body.view-write .left{display:flex}
+    body.view-preview .right{display:block}
+    .mobile-switch{display:flex;gap:4px}
+    #preview{padding:20px 18px 60px}
+  }
+
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-start;justify-content:center;padding:4vh 12px;z-index:10;overflow:auto}
+  .overlay.open{display:flex}
+  .dialog{background:var(--panel);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(860px,100%);padding:20px 22px}
+  .dialog h3{margin:0 0 4px;font-size:18px}
+  .dialog h4{margin:18px 0 6px;font-size:14px}
+  .dialog p.sub{margin:0 0 6px;color:var(--muted)}
+  .dhead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .rules{width:100%;border-collapse:collapse}
+  .rules th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:4px 6px}
+  .rules td{padding:3px 4px;vertical-align:middle;border-top:1px solid var(--line)}
+  .rules input{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:5px 7px;font-family:"JetBrains Mono",monospace;font-size:13px}
+  .rules input.bad{border-color:var(--danger)}
+  .rules input[type=number]{width:56px}
+  .rules .pv{min-width:90px;text-align:center;overflow:hidden}
+  .rules .pv svg{max-height:34px;max-width:200px}
+  .rules td.code{font-family:"JetBrains Mono",monospace;font-size:12.5px}
+  .namecell{display:flex;align-items:center;gap:2px;font-family:"JetBrains Mono",monospace}
+  .x{border:none;background:transparent;color:var(--muted);font-size:18px;padding:2px 8px;border-radius:6px}
+  .x:hover{color:var(--danger);background:var(--bg)}
+  .dfoot{display:flex;gap:8px;margin-top:16px;align-items:center}
+  .help code{font-size:12.5px;background:var(--chip);border:1px solid var(--line);padding:0 4px;border-radius:4px}
+  .help li{margin:4px 0}
+  #copyFallback{width:100%;height:220px;font:13px/1.5 "JetBrains Mono",monospace;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--bg)}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+  .toast.show{opacity:1}
+</style>
+<script>
+  window.MathJax = {
+    tex: { tags: 'none' },
+    svg: { fontCache: 'local' },
+    startup: { typeset: false, ready() { MathJax.startup.defaultReady(); window.__mjReady && window.__mjReady(); } }
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg-full.js" async></script>
+</head>
+<body class="view-write">
+<header>
+  <div class="brand"><b>∂</b> MathPad</div>
+  <select id="sheetSel" class="btn" aria-label="Sheet"></select>
+  <input id="titleIn" class="title-in" aria-label="Sheet title">
+  <button id="newBtn" class="btn">+ New</button>
+  <button id="delBtn" class="btn danger">Delete</button>
+  <div class="sep"></div>
+  <button id="palBtn" class="btn" title="Ctrl + /">Symbols</button>
+  <button id="plusBtn" class="btn">LaTeX+</button>
+  <div class="grow"></div>
+  <div class="mobile-switch">
+    <button class="btn on" data-view="write">Write</button>
+    <button class="btn" data-view="preview">Preview</button>
+  </div>
+  <button id="copyTexBtn" class="btn primary" title="LaTeX+ expanded into plain LaTeX">Copy plain LaTeX</button>
+  <div class="menuwrap">
+    <button id="fileBtn" class="btn">File ▾</button>
+    <div id="fileMenu" class="menu">
+      <button data-act="savemd">Save sheet<small>Downloads a .md file you can open again later</small></button>
+      <button data-act="open">Open file…<small>.md, .tex or .txt into a new sheet</small></button>
+      <hr>
+      <button data-act="tex">Export LaTeX document<small>A full .tex file, ready for Overleaf</small></button>
+      <button data-act="copysrc">Copy source<small>Exactly what you typed, LaTeX+ and all</small></button>
+      <hr>
+      <button data-act="backup">Back up everything<small>All sheets and LaTeX+ rules as one file</small></button>
+      <button data-act="restore">Restore backup…</button>
+    </div>
+  </div>
+  <button id="helpBtn" class="btn">?</button>
+  <input id="fileIn" type="file" accept=".md,.tex,.txt,.json,text/plain" hidden>
+</header>
+
+<main>
+  <section class="left">
+    <div id="palette" class="palette">
+      <div id="ptabs" class="ptabs"></div>
+      <div id="pgrid" class="pgrid"></div>
+    </div>
+    <textarea id="ed" spellcheck="false" aria-label="Source"></textarea>
+    <div class="status">
+      <span><kbd>$…$</kbd> inline</span>
+      <span><kbd>$$…$$</kbd> display</span>
+      <span><kbd>Tab</kbd> next empty slot</span>
+      <span><kbd>Ctrl</kbd>+<kbd>/</kbd> symbols</span>
+      <span id="saveState"></span>
+    </div>
+  </section>
+  <section class="right"><div id="preview"></div></section>
+</main>
+
+<div id="plusDlg" class="overlay" role="dialog" aria-modal="true">
+  <div class="dialog">
+    <div class="dhead"><h3>LaTeX+</h3><div class="grow"></div><button class="btn" data-close>Done</button></div>
+    <p class="sub">Your own layer on top of LaTeX. It's expanded inside maths before rendering, and "Copy plain LaTeX" turns it into ordinary LaTeX for anywhere else. Your rules override standard LaTeX commands of the same name.</p>
+
+    <h4>Built in</h4>
+    <table class="rules"><thead><tr><th style="width:260px">Type</th><th>What it does</th><th style="width:160px">Looks like</th></tr></thead><tbody id="builtinRows"></tbody></table>
+
+    <h4>Macros</h4>
+    <p class="sub">Names are letters (<code>\R</code>) or one symbol (<code>\0</code>). Use <code>#1</code>, <code>#2</code>… for arguments. Macros can use other macros.</p>
+    <table class="rules"><thead><tr><th style="width:150px">Name</th><th style="width:64px">Args</th><th>Becomes</th><th style="width:120px">Looks like</th><th style="width:36px"></th></tr></thead><tbody id="macroRows"></tbody></table>
+    <button id="addMacro" class="btn" style="margin-top:8px">+ Add macro</button>
+
+    <h4>Shorthands</h4>
+    <p class="sub">Swaps that need no backslash. Symbol ones (<code>-&gt;</code>) work anywhere in maths; letter ones (<code>int</code>, <code>dx</code>) only as whole words. Longest match wins.</p>
+    <table class="rules"><thead><tr><th style="width:150px">Type</th><th>Becomes</th><th style="width:120px">Looks like</th><th style="width:36px"></th></tr></thead><tbody id="shortRows"></tbody></table>
+    <button id="addShort" class="btn" style="margin-top:8px">+ Add shorthand</button>
+
+    <div class="dfoot"><button id="resetPlus" class="btn danger">Reset to defaults</button><div class="grow"></div><button class="btn primary" data-close>Done</button></div>
+  </div>
+</div>
+
+<div id="helpDlg" class="overlay" role="dialog" aria-modal="true">
+  <div class="dialog help">
+    <div class="dhead"><h3>How MathPad works</h3><div class="grow"></div><button class="btn" data-close>Close</button></div>
+    <ul>
+      <li>Write prose normally. Put maths in <code>$ … $</code> (inline) or <code>$$ … $$</code> (display). <code>\[ … \]</code>, <code>\( … \)</code> and bare <code>\begin{align*} … \end{align*}</code> work too.</li>
+      <li>Prose formatting: <code># Heading</code>, <code>## Subheading</code>, <code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, lines starting <code>- </code> become bullets, blank line = new paragraph.</li>
+      <li><b>Symbols</b> (or <code>Ctrl</code>+<code>/</code>) opens the palette. Clicking inserts at the cursor, and wraps it in <code>$…$</code> if you're not already in maths. If you've selected something, it goes into the first slot.</li>
+      <li><code>Tab</code> jumps to the next empty slot (an empty <code>{}</code> or an empty matrix cell); <code>Shift</code>+<code>Tab</code> goes back.</li>
+      <li><b>Matrices:</b> <code>\mat{1,2;3,4}</code>. Commas split columns, semicolons split rows. <code>\bmat</code> gives square brackets, <code>\vmat</code> a determinant, <code>\aug{1,2|5;3,4|6}</code> an augmented matrix. Or use the <i>Matrix</i> tab in Symbols to pick a size.</li>
+      <li><b>Evaluating:</b> <code>[x^2]_0^1</code> becomes properly sized brackets with limits. <code>\eval{x^2}{0}{1}</code> does the same.</li>
+      <li><b>Bare words:</b> <code>int_0^1 (2x) dx = [x^2]_0^1 = 1</code> works as typed. Edit the list under LaTeX+.</li>
+      <li><b>Copy plain LaTeX</b> expands all LaTeX+ for Overleaf, Google Docs' equation box, or a chat with Claude. <b>File → Export LaTeX document</b> gives a whole .tex file.</li>
+      <li>Sheets live in this browser. Use <b>File → Back up everything</b> now and then.</li>
+      <li>On a Chromebook you can install MathPad as an app (the install icon in Chrome's address bar), and it then works offline.</li>
+    </ul>
+  </div>
+</div>
+
+<div id="copyDlg" class="overlay" role="dialog" aria-modal="true">
+  <div class="dialog">
+    <div class="dhead"><h3 id="copyTitle">Copy this</h3><div class="grow"></div><button class="btn" data-close>Close</button></div>
+    <p class="sub" id="copySub">Your browser blocked automatic copying. It's selected below, so press Ctrl + C.</p>
+    <textarea id="copyFallback" readonly></textarea>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(function(){
+const R = String.raw;
+const $ = s => document.querySelector(s);
+const ed = $('#ed'), preview = $('#preview');
+
+/* ================= defaults ================= */
+const RULES_VERSION = 2;
+const DEFAULT_MACROS = [
+  {name:'R',args:0,body:R`\mathbb{R}`},
+  {name:'N',args:0,body:R`\mathbb{N}`},
+  {name:'Z',args:0,body:R`\mathbb{Z}`},
+  {name:'Q',args:0,body:R`\mathbb{Q}`},
+  {name:'C',args:0,body:R`\mathbb{C}`},
+  {name:'H',args:0,body:R`\mathbb{H}`},
+  {name:'O',args:0,body:R`\mathbb{O}`},
+  {name:'S',args:0,body:R`\mathbb{S}`},
+  {name:'0',args:0,body:R`\varnothing`},
+  {name:'Re',args:0,body:R`\mathfrak{R}`},
+  {name:'Im',args:0,body:R`\mathfrak{I}`},
+  {name:'d',args:0,body:R`\mathrm{d}`},
+  {name:'diff',args:2,body:R`\frac{\mathrm{d} #1}{\mathrm{d} #2}`},
+  {name:'partdiff',args:2,body:R`\frac{\partial #1}{\partial #2}`},
+  {name:'bc',args:0,body:R`\because`},
+  {name:'tf',args:0,body:R`\therefore`},
+  {name:'abs',args:1,body:R`\left|#1\right|`},
+  {name:'norm',args:1,body:R`\left\lVert #1 \right\rVert`},
+  {name:'floor',args:1,body:R`\left\lfloor #1 \right\rfloor`},
+  {name:'ceil',args:1,body:R`\left\lceil #1 \right\rceil`},
+  {name:'set',args:1,body:R`\left\{ #1 \right\}`},
+  {name:'qed',args:0,body:R`\quad\blacksquare`},
+];
+const DEFAULT_SHORTS = [
+  {from:'<=>',to:R`\iff`},
+  {from:'=>',to:R`\implies`},
+  {from:'->',to:R`\to`},
+  {from:'|->',to:R`\mapsto`},
+  {from:'==',to:R`\equiv`},
+  {from:'<=',to:R`\leq`},
+  {from:'>=',to:R`\geq`},
+  {from:'!=',to:R`\neq`},
+  {from:'!~',to:R`\not\approx`},
+  {from:'~=',to:R`\approx`},
+  {from:'+-',to:R`\pm`},
+  {from:'-+',to:R`\mp`},
+  {from:'int',to:R`\int`},
+  {from:'iint',to:R`\iint`},
+  {from:'oint',to:R`\oint`},
+  {from:'sum',to:R`\sum`},
+  {from:'prod',to:R`\prod`},
+  {from:'lim',to:R`\lim`},
+  {from:'sin',to:R`\sin`},
+  {from:'cos',to:R`\cos`},
+  {from:'tan',to:R`\tan`},
+  {from:'ln',to:R`\ln`},
+  {from:'log',to:R`\log`},
+  {from:'exp',to:R`\exp`},
+  {from:'oo',to:R`\infty`},
+  {from:'pi',to:R`\pi`},
+  {from:'theta',to:R`\theta`},
+  {from:'dx',to:R`\mathop{}\!\mathrm{d}x`},
+  {from:'dy',to:R`\mathop{}\!\mathrm{d}y`},
+  {from:'dz',to:R`\mathop{}\!\mathrm{d}z`},
+  {from:'dt',to:R`\mathop{}\!\mathrm{d}t`},
+  {from:'du',to:R`\mathop{}\!\mathrm{d}u`},
+];
+const STARTER = R`# Welcome to MathPad
+
+Type on the left and it renders on the right. Inline maths goes between single dollar signs, display maths between double ones.
+
+## Your LaTeX+ in action
+
+Number systems: $\N \subset \Z \subset \Q \subset \R \subset \C \subset \H \subset \O \subset \S$, and the empty set is $\0$.
+
+Parts: $\Re(z)$ and $\Im(z)$. Derivatives: $\diff{y}{x}$ and $\partdiff{f}{x}$.
+
+Relations: $a == b \pmod{n}$, $x <= y$, $x >= y$, $a != b$, $x !~ y$, $A \cong B$, $A \ncong B$, $\pm$, $\mp$. Logic: $\bc$ and $\tf$.
+
+## Evaluating integrals, as typed
+
+$$int_0^1 (2x) dx = [x^2]_0^1 = 1$$
+
+## Matrices
+
+$$A = \mat{1,2;3,4}, \quad \det A = \vmat{1,2;3,4} = -2, \quad \aug{1,2|5;3,4|6}$$
+
+## Q2, the slick way
+
+Let $I = int_0^{pi/2} \frac{sin x}{sin x + cos x} dx$. Substituting $u = \frac{pi}{2} - x$ (so the limits swap and $\d u = -\d x$) gives
+
+$$I = int_0^{pi/2} \frac{cos u}{cos u + sin u} du$$
+
+and adding the two forms,
+
+$$\begin{aligned} 2I &= int_0^{pi/2} 1 \, dx \\ &= [x]_0^{pi/2} = \frac{pi}{2} \end{aligned}$$
+
+$\tf I = \frac{pi}{4}$. $\qed$
+`;
+
+/* ================= state ================= */
+const KEY = 'mathpad.v1';
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function clone(x){ return JSON.parse(JSON.stringify(x)); }
+let state = null;
+try { state = JSON.parse(localStorage.getItem(KEY)); } catch(e) {}
+if (!state || !Array.isArray(state.sheets) || !state.sheets.length) {
+  state = { sheets:[{id:uid(), title:'Welcome', text:STARTER}], current:null, palette:false, ptab:1 };
+  state.current = state.sheets[0].id;
+}
+if (state.rulesVersion !== RULES_VERSION) {
+  state.macros = clone(DEFAULT_MACROS); state.shorts = clone(DEFAULT_SHORTS); state.rulesVersion = RULES_VERSION;
+}
+const cur = () => state.sheets.find(s=>s.id===state.current) || state.sheets[0];
+let saveTimer;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{
+    try { localStorage.setItem(KEY, JSON.stringify(state)); $('#saveState').textContent = 'Saved in this browser'; }
+    catch(e){ $('#saveState').textContent = 'Not saved (browser storage unavailable)'; }
+  }, 300);
+}
+
+/* ================= LaTeX+ engine ================= */
+const NAME_OK = n => /^([A-Za-z]+|[^A-Za-z\s\\{}])$/.test(n||'');
+let macroMap = new Map(), shorts = [];
+function rebuildRules(){
+  macroMap = new Map();
+  for (const m of state.macros) if (NAME_OK(m.name) && (m.body||'') !== '\\'+m.name)
+    macroMap.set(m.name, {args:Math.max(0,Math.min(9,+m.args||0)), body:m.body||''});
+  shorts = state.shorts.filter(s=>s.from).map(s=>({...s, word:/^[A-Za-z]+$/.test(s.from)}))
+    .sort((a,b)=>b.from.length-a.from.length);
+}
+function readArg(s,i){
+  while (s[i]===' ') i++;
+  if (s[i]==='{'){
+    let d=0, j=i;
+    for (; j<s.length; j++){
+      if (s[j]==='\\'){ j++; continue; }
+      if (s[j]==='{') d++;
+      else if (s[j]==='}'){ d--; if (d===0) break; }
+    }
+    return {arg:s.slice(i+1,j), end:Math.min(j+1,s.length)};
+  }
+  if (s[i]==='\\'){ const m=/^\\([A-Za-z]+|.)/.exec(s.slice(i)); return {arg:m[0], end:i+m[0].length}; }
+  return {arg:s[i]??'', end:Math.min(i+1,s.length)};
+}
+// split on top-level separator chars (outside {}, (), [])
+function splitTop(s, seps, dblBackslash){
+  const parts=[]; let d=0, last=0;
+  for (let i=0;i<s.length;i++){
+    const c=s[i];
+    if (c==='\\'){
+      if (dblBackslash && s[i+1]==='\\' && d===0){ parts.push(s.slice(last,i)); last=i+2; }
+      i++; continue;
+    }
+    if ('{(['.includes(c)) d++;
+    else if ('})]'.includes(c)) d=Math.max(0,d-1);
+    else if (d===0 && seps.includes(c)){ parts.push(s.slice(last,i)); last=i+1; }
+  }
+  parts.push(s.slice(last));
+  return parts;
+}
+function matRows(arg){
+  const rows = splitTop(arg, ';', true);
+  while (rows.length>1 && !rows[rows.length-1].trim()) rows.pop();
+  return rows;
+}
+function matrix(arg, env, depth){
+  const body = matRows(arg).map(r=>splitTop(r, ',&').map(c=>expand(c.trim(),depth+1)).join(' & ')).join(' \\\\ ');
+  return `\\begin{${env}} ${body} \\end{${env}}`;
+}
+function augmented(arg, depth){
+  const rows = matRows(arg).map(r=>{
+    const [L,Rt=''] = splitTop(r,'|');
+    return [splitTop(L,',&').map(c=>expand(c.trim(),depth+1)), splitTop(Rt,',&').map(c=>expand(c.trim(),depth+1))];
+  });
+  const nL = Math.max(...rows.map(r=>r[0].length)), nR = Math.max(...rows.map(r=>r[1].length));
+  const body = rows.map(([l,r])=>[...l, ...Array(nL-l.length).fill(''), ...r].join(' & ')).join(' \\\\ ');
+  return `\\left(\\begin{array}{${'c'.repeat(nL)}|${'c'.repeat(nR)}} ${body} \\end{array}\\right)`;
+}
+const evalBr = (F,a,b) => `\\left[ ${F} \\right]_{${a}}^{${b}}`;
+const BUILTINS = {
+  mat:  {n:1, f:(a,d)=>matrix(a,'pmatrix',d)},
+  bmat: {n:1, f:(a,d)=>matrix(a,'bmatrix',d)},
+  vmat: {n:1, f:(a,d)=>matrix(a,'vmatrix',d)},
+  aug:  {n:1, f:(a,d)=>augmented(a,d)},
+  eval: {n:3, f:(F,a,b,d)=>evalBr(expand(F,d+1),expand(a,d+1),expand(b,d+1))},
+};
+const TEXTCMDS = new Set(['text','textbf','textit','textrm','textsf','texttt','mbox','operatorname','mathrm','label','begin','end']);
+const SIZERS = /\\(left|right|big|Big|bigg|Bigg)[lr]?\s*$/;
+const isL = ch => !!ch && /[A-Za-z]/.test(ch);
+const endsInWord = t => /\\[A-Za-z]+$/.test(t);
+function matchBracket(s,i){
+  let d=0;
+  for (let j=i;j<s.length;j++){
+    const c=s[j];
+    if (c==='\\'){ j++; continue; }
+    if (c==='[') d++;
+    else if (c===']'){ d--; if (d===0) return j; }
+    else if (c==='$') return -1;
+  }
+  return -1;
+}
+function expand(src, depth=0){
+  if (depth>40) return src;
+  let out='', i=0;
+  const pad = () => { if (endsInWord(out) && isL(src[i])) out+=' '; };
+  while (i<src.length){
+    const c = src[i];
+    if (c==='\\'){
+      const m = /^\\([A-Za-z]+)/.exec(src.slice(i,i+64));
+      const tok = m ? m[0] : src.slice(i,i+2);
+      const name = m ? m[1] : src[i+1];
+      const mac = name!==undefined ? macroMap.get(name) : null;
+      if (mac){
+        i += tok.length;
+        const args=[];
+        for (let k=0;k<mac.args;k++){ const r=readArg(src,i); args.push(r.arg); i=r.end; }
+        out += expand(mac.body.replace(/#([1-9])/g,(_,dg)=>args[dg-1]??''), depth+1);
+        pad(); continue;
+      }
+      if (m && BUILTINS[name]){
+        i += tok.length;
+        const b=BUILTINS[name], args=[];
+        for (let k=0;k<b.n;k++){ const r=readArg(src,i); args.push(r.arg); i=r.end; }
+        out += b.f(...args, depth); continue;
+      }
+      out += tok; i += tok.length;
+      if (m && TEXTCMDS.has(name)){
+        let j=i; while (src[j]===' ') j++;
+        if (src[j]==='{'){ const r=readArg(src,j); out+=src.slice(i,r.end); i=r.end; }
+      }
+      continue;
+    }
+    if (c==='[' && !SIZERS.test(out)){
+      const close = matchBracket(src,i);
+      if (close>0){
+        let j=close+1, sub=null, sup=null;
+        for (let k=0;k<2;k++){
+          while (src[j]===' ') j++;
+          if (src[j]==='_' && sub===null){ const r=readArg(src,j+1); sub=r.arg; j=r.end; }
+          else if (src[j]==='^' && sup===null){ const r=readArg(src,j+1); sup=r.arg; j=r.end; }
+        }
+        if (sub!==null && sup!==null){
+          out += evalBr(expand(src.slice(i+1,close),depth+1), expand(sub,depth+1), expand(sup,depth+1));
+          i=j; continue;
+        }
+      }
+    }
+    let hit=null;
+    for (const s of shorts){
+      if (!src.startsWith(s.from,i)) continue;
+      if (s.word && (isL(src[i-1]) || src[i-1]==='\\' || isL(src[i+s.from.length]))) continue;
+      hit=s; break;
+    }
+    if (hit){ out += hit.to; i += hit.from.length; pad(); continue; }
+    out += c; i++;
+  }
+  return out;
+}
+
+/* ================= parsing ================= */
+const MATH_RE = /\$\$(?<d1>[\s\S]+?)\$\$|\\\[(?<d2>[\s\S]+?)\\\]|(?<env>\\begin\{(?<en>align\*?|equation\*?|gather\*?|multline\*?)\}[\s\S]+?\\end\{\k<en>\})|\\\((?<i2>[\s\S]+?)\\\)|\$(?<i1>[^$\n]+?)\$/g;
+const esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function inlineHtml(t){
+  return esc(t)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\s][^*]*?)\*/g,'$1<em>$2</em>');
+}
+// generic line-structure walker used for HTML and .tex
+function walk(text, fmt){
+  let out='', para=null, list=false;
+  const closePara=()=>{ if(para!==null){ out+=fmt.para(para); para=null; } };
+  const closeList=()=>{ if(list){ out+=fmt.ulEnd; list=false; } };
+  for (const raw of text.split('\n')){
+    const line = raw.replace(/\s+$/,'');
+    if (!line.trim()){ closePara(); closeList(); continue; }
+    const h = /^(#{1,3})\s+(.*)$/.exec(line);
+    if (h){ closePara(); closeList(); out+=fmt.head(h[1].length, fmt.inline(h[2])); continue; }
+    const li = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (li && !/^\*\*/.test(line.trim())){ closePara(); if(!list){ out+=fmt.ulStart; list=true; } out+=fmt.li(fmt.inline(li[1])); continue; }
+    closeList();
+    para = para===null ? fmt.inline(line) : para+fmt.br+fmt.inline(line);
+  }
+  closePara(); closeList();
+  return out;
+}
+const HTML_FMT = {
+  inline:inlineHtml, para:p=>'<p>'+p+'</p>', head:(l,t)=>`<h${l+1}>${t}</h${l+1}>`,
+  ulStart:'<ul>', ulEnd:'</ul>', li:t=>'<li>'+t+'</li>', br:'<br>'
+};
+function texEsc(t){
+  return t.replace(/\\/g,'\u0001').replace(/([&%#_{}$])/g,'\\$1').replace(/~/g,'\\textasciitilde{}')
+          .replace(/\^/g,'\\textasciicircum{}').replace(/\u0001/g,'\\textbackslash{}');
+}
+const TEX_FMT = {
+  inline:t=>texEsc(t).replace(/`([^`]+)`/g,'\\texttt{$1}').replace(/\*\*(.+?)\*\*/g,'\\textbf{$1}').replace(/(^|[^*])\*([^*\s][^*]*?)\*/g,'$1\\emph{$2}'),
+  para:p=>p+'\n\n', head:(l,t)=>['\\section*{','\\subsection*{','\\subsubsection*{'][l-1]+t+'}\n\n',
+  ulStart:'\\begin{itemize}\n', ulEnd:'\\end{itemize}\n\n', li:t=>'  \\item '+t+'\n', br:'\\\\\n'
+};
+function pickMath(g){
+  if (g.d1!=null) return {tex:g.d1, display:true, kind:'d'};
+  if (g.d2!=null) return {tex:g.d2, display:true, kind:'d'};
+  if (g.env!=null) return {tex:g.env, display:true, kind:'env'};
+  if (g.i2!=null) return {tex:g.i2, display:false, kind:'i'};
+  return {tex:g.i1, display:false, kind:'i'};
+}
+function extract(src){
+  const maths=[];
+  const text = src.replace(MATH_RE, (...a)=>{
+    const m = pickMath(a[a.length-1]); m.tex = expand(m.tex); maths.push(m);
+    return '\u0000'+(maths.length-1)+'\u0000';
+  });
+  return {text, maths};
+}
+
+/* ================= rendering ================= */
+let mjReady = false;
+function tex2node(tex, display){
+  try { MathJax.texReset(); return MathJax.tex2svg(tex, {display}); }
+  catch(e){ const s=document.createElement('span'); s.style.color='var(--danger)'; s.textContent=tex; return s; }
+}
+function render(){
+  const src = ed.value;
+  if (!src.trim()){ preview.innerHTML = '<p class="placeholder">Nothing here yet. Start typing on the left.</p>'; return; }
+  const {text, maths} = extract(src);
+  const box = document.createElement('div');
+  box.innerHTML = walk(text, HTML_FMT).replace(/\u0000(\d+)\u0000/g,(_,k)=>`<span class="m${maths[k].display?' disp':''}" data-k="${k}"></span>`);
+  box.querySelectorAll('.m').forEach(el=>{
+    const m = maths[+el.dataset.k];
+    if (mjReady) el.appendChild(tex2node(m.tex, m.display));
+    else { el.classList.add('raw'); el.textContent = m.tex; }
+  });
+  preview.replaceChildren(...box.childNodes);
+}
+let rTimer;
+const schedule = () => { clearTimeout(rTimer); rTimer=setTimeout(render,140); };
+
+function expandedSource(src=ed.value){
+  return src.replace(MATH_RE, (whole, ...a)=>{
+    const g=a[a.length-1];
+    if (g.d1!=null) return '$$'+expand(g.d1)+'$$';
+    if (g.d2!=null) return '\\['+expand(g.d2)+'\\]';
+    if (g.env!=null) return expand(g.env);
+    if (g.i2!=null) return '\\('+expand(g.i2)+'\\)';
+    return '$'+expand(g.i1)+'$';
+  });
+}
+function texDocument(){
+  const {text, maths} = extract(ed.value);
+  const body = walk(text, TEX_FMT).replace(/\u0000(\d+)\u0000/g,(_,k)=>{
+    const m=maths[k];
+    if (m.kind==='env') return '\n'+m.tex+'\n';
+    return m.display ? '\n\\[ '+m.tex+' \\]\n' : '$'+m.tex+'$';
+  });
+  const title = texEsc(cur().title||'MathPad sheet');
+  return `\\documentclass[11pt]{article}
+\\usepackage[margin=2.5cm]{geometry}
+\\usepackage{amsmath,amssymb,amsfonts}
+\\setlength{\\parindent}{0pt}
+\\setlength{\\parskip}{0.6em}
+
+\\begin{document}
+\\section*{${title}}
+
+${body.trim()}
+
+\\end{document}
+`;
+}
+
+/* ================= palette ================= */
+const simple = s => s.trim().split(/\s+/).map(t=>[t,t]);
+const PALETTE = [
+  {name:'Greek', items: simple(R`\alpha \beta \gamma \delta \epsilon \varepsilon \zeta \eta \theta \vartheta \iota \kappa \lambda \mu \nu \xi \pi \rho \sigma \tau \upsilon \phi \varphi \chi \psi \omega \Gamma \Delta \Theta \Lambda \Xi \Pi \Sigma \Phi \Psi \Omega`)},
+  {name:'Structures', items: [
+    [R`\frac{\square}{\square}`, R`\frac{‸}{}`], [R`\sqrt{\square}`, R`\sqrt{‸}`], [R`\sqrt[\square]{\square}`, R`\sqrt[‸]{}`],
+    [R`\square^{\square}`, R`^{‸}`], [R`\square_{\square}`, R`_{‸}`], [R`\binom{\square}{\square}`, R`\binom{‸}{}`],
+    [R`\left(\square\right)`, R`\left( ‸ \right)`], [R`\left[\square\right]`, R`\left[ ‸ \right]`], [R`\left|\square\right|`, R`\abs{‸}`],
+    [R`\left\{\square\right\}`, R`\set{‸}`], [R`\lfloor\square\rfloor`, R`\floor{‸}`], [R`\lceil\square\rceil`, R`\ceil{‸}`],
+    [R`\overline{\square}`, R`\overline{‸}`], [R`\hat{\square}`, R`\hat{‸}`], [R`\vec{\square}`, R`\vec{‸}`],
+    [R`\dot{\square}`, R`\dot{‸}`], [R`\tilde{\square}`, R`\tilde{‸}`], [R`\text{abc}`, R`\text{‸}`],
+    [R`\begin{cases}a & x>0\\b & x\le 0\end{cases}`, R`\begin{cases} ‸ & \\  & \end{cases}`, 'wide'],
+    [R`\begin{aligned}a&=b\\&=c\end{aligned}`, R`\begin{aligned} ‸ &= \\ &= \end{aligned}`, 'wide'],
+  ]},
+  {name:'Matrix ▦', picker:true},
+  {name:'Calculus', items: [
+    [R`\int`,R`\int`], [R`\int_{a}^{b}`, R`\int_{‸}^{}`], [R`\iint`,R`\iint`], [R`\oint`,R`\oint`],
+    [R`\left[F(x)\right]_a^b`, R`[‸]_{}^{}`, 'wide'],
+    [R`\sum_{n=1}^{\infty}`, R`\sum_{‸}^{}`], [R`\prod_{i=1}^{n}`, R`\prod_{‸}^{}`], [R`\lim_{x\to a}`, R`\lim_{‸ \to }`],
+    [R`\frac{\mathrm{d}y}{\mathrm{d}x}`, R`\diff{‸}{}`], [R`\frac{\partial f}{\partial x}`, R`\partdiff{‸}{}`],
+    [R`\mathrm{d}x`, R`\d ‸`],
+    ...simple(R`\ln \log \exp \sin \cos \tan \sec \csc \cot \arcsin \arccos \arctan \sinh \cosh \tanh \max \min \sup \inf \det \gcd \deg`)
+  ]},
+  {name:'Operators', items: simple(R`+ - \pm \mp \times \div \cdot \circ \ast \bullet \oplus \otimes \cup \cap \setminus \nabla \partial \dagger \star ! '`)},
+  {name:'Relations', items: simple(R`= \neq < > \leq \geq \ll \gg \approx \not\approx \equiv \not\equiv \sim \simeq \cong \ncong \propto \mid \nmid \parallel \perp`).concat([[R`\pmod{n}`, R`\pmod{‸}`]])},
+  {name:'Sets & logic', items: simple(R`\in \notin \ni \subset \subseteq \subsetneq \supset \supseteq \varnothing \forall \exists \nexists \neg \land \lor \implies \impliedby \iff \therefore \because \infty \aleph_0 \mathbb{N} \mathbb{Z} \mathbb{Q} \mathbb{R} \mathbb{C} \mathbb{H} \mathbb{O} \mathbb{S} \mathfrak{R} \mathfrak{I} \top \bot \vdash \models`)},
+  {name:'Arrows', items: simple(R`\to \rightarrow \leftarrow \leftrightarrow \Rightarrow \Leftarrow \Leftrightarrow \mapsto \longrightarrow \longmapsto \hookrightarrow \twoheadrightarrow \uparrow \downarrow \nearrow \searrow \rightleftharpoons`)},
+  {name:'Dots & spacing', items: [
+    ...simple(R`\dots \cdots \vdots \ddots`),
+    [R`a\,b`, R`\,`], [R`a\;b`, R`\;`], [R`a\quad b`, R`\quad `], [R`a\qquad b`, R`\qquad `],
+    [R`\blacksquare`,R`\blacksquare`], [R`\square`,R`\square`], [R`\checkmark`,R`\checkmark`],
+  ]},
+];
+function mineTab(){
+  return {name:'Mine ★', items: state.macros.filter(m=>NAME_OK(m.name)).map(m=>{
+    const n=+m.args||0;
+    return ['\\'+m.name+'{\\square}'.repeat(n), '\\'+m.name+(n?'{‸}'+'{}'.repeat(n-1):(isL(m.name)?' ‸':'‸'))];
+  })};
+}
+const tabs = () => [mineTab(), ...PALETTE];
+function drawTabs(){
+  const t = tabs();
+  if (state.ptab>=t.length) state.ptab=1;
+  $('#ptabs').innerHTML = t.map((x,i)=>`<button class="ptab${i===state.ptab?' on':''}" data-i="${i}">${esc(x.name)}</button>`).join('');
+  drawGrid();
+}
+let mStyle='mat';
+const M_STYLES = [['mat',R`\begin{pmatrix}\,\end{pmatrix}`,'Round'],['bmat',R`\begin{bmatrix}\,\end{bmatrix}`,'Square'],['vmat',R`\begin{vmatrix}\,\end{vmatrix}`,'Determinant'],['aug',R`\left(\begin{array}{c|c}\,&\,\end{array}\right)`,'Augmented']];
+function drawGrid(){
+  const tab = tabs()[state.ptab];
+  const grid = $('#pgrid');
+  grid.className = tab.picker ? '' : 'pgrid';
+  grid.innerHTML='';
+  if (tab.picker){ drawPicker(grid); return; }
+  if (!tab.items.length){ grid.innerHTML='<div class="pempty">No macros yet. Add some under LaTeX+.</div>'; return; }
+  tab.items.forEach(([disp, ins, wide])=>{
+    const b=document.createElement('button');
+    b.className='pbtn'+(wide?' wide':'');
+    b.title = ins.replace('‸','');
+    b.dataset.ins = ins;
+    if (mjReady) b.appendChild(tex2node(expand(disp), false)); else b.textContent = disp;
+    grid.appendChild(b);
+  });
+}
+function drawPicker(grid){
+  const wrap=document.createElement('div'); wrap.className='mpick';
+  const g=document.createElement('div'); g.className='mgrid';
+  for (let r=1;r<=6;r++) for (let c=1;c<=6;c++){
+    const b=document.createElement('button'); b.className='mcell'; b.dataset.r=r; b.dataset.c=c; b.setAttribute('aria-label',`${r} by ${c}`); g.appendChild(b);
+  }
+  const side=document.createElement('div'); side.className='mside';
+  side.innerHTML = `<div class="lbl" id="mLbl">Pick a size</div><div class="mstyles" id="mStyles"></div>
+    <div class="mhint">Inserts <code>\\mat{…}</code> with empty cells. Type an entry, press Tab for the next cell. Augmented puts the last column after the bar.</div>`;
+  wrap.append(g, side); grid.appendChild(wrap);
+  const st = side.querySelector('#mStyles');
+  M_STYLES.forEach(([k,disp,lbl])=>{
+    const b=document.createElement('button'); b.className='btn'+(k===mStyle?' on':''); b.title=lbl; b.dataset.k=k;
+    if (mjReady) b.appendChild(tex2node(disp,false)); else b.textContent=lbl;
+    b.onclick=()=>{ mStyle=k; st.querySelectorAll('.btn').forEach(x=>x.classList.toggle('on',x===b)); };
+    st.appendChild(b);
+  });
+  const hl=(R,C)=>{ g.querySelectorAll('.mcell').forEach(c=>c.classList.toggle('hl', +c.dataset.r<=R && +c.dataset.c<=C)); side.querySelector('#mLbl').textContent = R?`${R} × ${C}`:'Pick a size'; };
+  g.addEventListener('mouseover', e=>{ const c=e.target.closest('.mcell'); if(c) hl(+c.dataset.r,+c.dataset.c); });
+  g.addEventListener('mouseleave', ()=>hl(0,0));
+  g.addEventListener('mousedown', e=>e.preventDefault());
+  g.addEventListener('click', e=>{
+    const c=e.target.closest('.mcell'); if(!c) return;
+    const r=+c.dataset.r, n=+c.dataset.c;
+    let row;
+    if (mStyle==='aug' && n>=2) row = ','.repeat(n-2)+'|';
+    else row = ','.repeat(n-1);
+    const style = (mStyle==='aug' && n<2) ? 'mat' : mStyle;
+    insertSnippet('\\'+style+'{‸'+row+(';'+row).repeat(r-1)+'}');
+  });
+}
+$('#ptabs').addEventListener('click', e=>{
+  const b=e.target.closest('.ptab'); if(!b) return;
+  state.ptab=+b.dataset.i; save(); drawTabs();
+});
+$('#pgrid').addEventListener('mousedown', e=>{ if(e.target.closest('.pbtn')) e.preventDefault(); });
+$('#pgrid').addEventListener('click', e=>{ const b=e.target.closest('.pbtn'); if(b) insertSnippet(b.dataset.ins); });
+function setPalette(open){
+  state.palette=open; save();
+  $('#palette').classList.toggle('open',open);
+  $('#palBtn').classList.toggle('on',open);
+  if (open) drawTabs();
+}
+$('#palBtn').onclick=()=>setPalette(!state.palette);
+
+/* ================= editor ================= */
+function inMath(v,pos){
+  let st=0;
+  for (let i=0;i<pos;i++){
+    const c=v[i];
+    if (c==='\\'){
+      const n=v[i+1];
+      if (n==='[' && st===0){st=2;i++;continue;}
+      if (n===']' && st===2){st=0;i++;continue;}
+      if (n==='(' && st===0){st=1;i++;continue;}
+      if (n===')' && st===1){st=0;i++;continue;}
+      i++; continue;
+    }
+    if (c==='$'){
+      if (v[i+1]==='$'){ if(st===0) st=2; else if(st===2) st=0; i++; }
+      else { if(st===0) st=1; else if(st===1) st=0; }
+    }
+  }
+  if (st) return true;
+  const b=v.lastIndexOf('\\begin{',pos-1), e=v.lastIndexOf('\\end{',pos-1);
+  return b>e && /^\\begin\{(align|equation|gather|multline)/.test(v.slice(b));
+}
+function insertSnippet(snip){
+  const s=ed.selectionStart, e=ed.selectionEnd, v=ed.value, sel=v.slice(s,e);
+  let ins = snip.includes('‸') ? snip : snip + (/[A-Za-z]$/.test(snip)?' ':'') + '‸';
+  if (sel) ins = ins.replace('‸', sel+'‸');
+  if (!inMath(v,s)) ins = '$'+ins+'$';
+  const caret = s + ins.indexOf('‸');
+  ins = ins.replace('‸','');
+  ed.focus();
+  ed.setRangeText(ins, s, e, 'end');
+  ed.setSelectionRange(caret, caret);
+  onEdit();
+}
+// an empty slot is a cursor position j with v[j-1] in "{,;|" and v[j] in ",;|}"
+const isSlot = (v,j) => j>0 && '{,;|'.includes(v[j-1]) && ',;|}'.includes(v[j]);
+ed.addEventListener('keydown', e=>{
+  if (e.key!=='Tab') return;
+  e.preventDefault();
+  const v=ed.value;
+  if (e.shiftKey){
+    for (let j=ed.selectionStart-1;j>0;j--) if (isSlot(v,j)){ ed.setSelectionRange(j,j); return; }
+    return;
+  }
+  for (let j=ed.selectionEnd+1;j<v.length;j++) if (isSlot(v,j)){ ed.setSelectionRange(j,j); return; }
+  ed.setRangeText('  ', ed.selectionStart, ed.selectionEnd, 'end'); onEdit();
+});
+document.addEventListener('keydown', e=>{
+  if ((e.ctrlKey||e.metaKey) && e.key==='/'){ e.preventDefault(); setPalette(!state.palette); }
+  if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); saveSheetFile(); }
+  if (e.key==='Escape'){ document.querySelectorAll('.overlay.open,.menu.open').forEach(o=>o.classList.remove('open')); }
+});
+function onEdit(){ cur().text = ed.value; save(); schedule(); }
+ed.addEventListener('input', onEdit);
+
+/* ================= sheets ================= */
+function drawSheets(){
+  $('#sheetSel').innerHTML = state.sheets.map(s=>`<option value="${s.id}"${s.id===state.current?' selected':''}>${esc(s.title||'Untitled')}</option>`).join('');
+  $('#titleIn').value = cur().title||'';
+}
+function openSheet(id){ state.current=id; save(); ed.value = cur().text; drawSheets(); render(); disarm(); }
+function addSheet(title, text){ const s={id:uid(), title, text}; state.sheets.push(s); openSheet(s.id); return s; }
+$('#sheetSel').onchange = e=>openSheet(e.target.value);
+$('#titleIn').oninput = e=>{ cur().title=e.target.value; save(); const o=$('#sheetSel').selectedOptions[0]; if(o) o.textContent=e.target.value||'Untitled'; };
+$('#newBtn').onclick = ()=>{ addSheet('Sheet '+new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short'}), ''); ed.focus(); };
+let armed=null;
+function disarm(){ $('#delBtn').classList.remove('armed'); $('#delBtn').textContent='Delete'; clearTimeout(armed); armed=null; }
+$('#delBtn').onclick = ()=>{
+  if (!armed){ $('#delBtn').classList.add('armed'); $('#delBtn').textContent='Really delete?'; armed=setTimeout(disarm,3000); return; }
+  disarm();
+  state.sheets = state.sheets.filter(s=>s.id!==state.current);
+  if (!state.sheets.length) state.sheets.push({id:uid(), title:'Untitled', text:''});
+  openSheet(state.sheets[0].id); toast('Sheet deleted');
+};
+
+/* ================= files & copy ================= */
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
+function showText(title, text){
+  $('#copyTitle').textContent=title; $('#copySub').textContent="Your browser blocked that. It's selected below, so press Ctrl + C and paste it wherever you need it.";
+  $('#copyFallback').value=text; $('#copyDlg').classList.add('open'); setTimeout(()=>$('#copyFallback').select(),30);
+}
+async function copy(text, label){
+  try { await navigator.clipboard.writeText(text); toast(label+' copied'); }
+  catch(e){ showText('Copy this', text); }
+}
+const fname = ext => (cur().title||'mathpad').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')+ext;
+let dlCap = null;
+try { if (window.claude && claude.use) claude.use('downloads').then(d=>{ dlCap=d; }).catch(()=>{}); } catch(e){}
+async function download(name, text, type){
+  if (dlCap){
+    try { await dlCap.save({filename:name, data:text}); toast('Saved '+name); }
+    catch(e){ showText(name, text); }
+    return;
+  }
+  if (window.claude){ showText(name, text); return; }
+  try {
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    toast('Saved '+name);
+  } catch(e){ showText(name, text); }
+}
+function saveSheetFile(){ download(fname('.md'), ed.value, 'text/markdown'); }
+let fileMode='open';
+$('#fileIn').onchange = async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f) return;
+  const text = await f.text();
+  if (fileMode==='restore'){
+    try {
+      const data=JSON.parse(text);
+      if (!Array.isArray(data.sheets)) throw 0;
+      const ids=new Set(state.sheets.map(s=>s.id));
+      for (const s of data.sheets){ if (ids.has(s.id)) s.id=uid(); state.sheets.push(s); }
+      if (Array.isArray(data.macros)) state.macros=data.macros;
+      if (Array.isArray(data.shorts)) state.shorts=data.shorts;
+      rebuildRules(); openSheet(data.sheets[0]?.id||state.current); toast('Backup restored');
+    } catch(err){ toast("That doesn't look like a MathPad backup"); }
+  } else {
+    addSheet(f.name.replace(/\.(md|tex|txt)$/i,''), text); toast('Opened '+f.name);
+  }
+};
+const menu=$('#fileMenu');
+$('#fileBtn').onclick = e=>{ e.stopPropagation(); menu.classList.toggle('open'); };
+document.addEventListener('click', e=>{ if(!e.target.closest('.menuwrap')) menu.classList.remove('open'); });
+menu.addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  menu.classList.remove('open');
+  ({
+    savemd: saveSheetFile,
+    open: ()=>{ fileMode='open'; $('#fileIn').accept='.md,.tex,.txt,text/plain'; $('#fileIn').click(); },
+    tex: ()=>download(fname('.tex'), texDocument(), 'application/x-tex'),
+    copysrc: ()=>copy(ed.value,'Source'),
+    backup: ()=>download('mathpad-backup-'+new Date().toISOString().slice(0,10)+'.json', JSON.stringify({app:'MathPad',sheets:state.sheets,macros:state.macros,shorts:state.shorts},null,1), 'application/json'),
+    restore: ()=>{ fileMode='restore'; $('#fileIn').accept='.json,application/json'; $('#fileIn').click(); },
+  })[b.dataset.act]?.();
+});
+$('#copyTexBtn').onclick = ()=>copy(expandedSource(),'Plain LaTeX');
+
+/* ================= dialogs ================= */
+document.querySelectorAll('.overlay').forEach(o=>{
+  o.addEventListener('click', e=>{ if(e.target===o || e.target.hasAttribute('data-close')) o.classList.remove('open'); });
+});
+$('#helpBtn').onclick = ()=>$('#helpDlg').classList.add('open');
+$('#plusBtn').onclick = ()=>{ drawRules(); $('#plusDlg').classList.add('open'); };
+
+/* ================= LaTeX+ editor ================= */
+function pvNode(tex){ const span=document.createElement('span'); if(mjReady) span.appendChild(tex2node(tex,false)); else span.textContent=tex; return span; }
+function macroExample(m){ const n=+m.args||0; return '\\'+m.name+['{f}','{x}','{c}','{d}','{e}','{g}','{h}','{i}','{j}'].slice(0,n).join(''); }
+const BUILTIN_DOCS = [
+  [R`\mat{1,2;3,4}`, 'Matrix in round brackets. Commas = columns, semicolons = rows.'],
+  [R`\bmat{1,2;3,4}`, 'Matrix in square brackets.'],
+  [R`\vmat{1,2;3,4}`, 'Determinant bars.'],
+  [R`\aug{1,2|5;3,4|6}`, 'Augmented matrix: the bar marks the divider.'],
+  [R`[x^2]_0^1`, 'Evaluation brackets, sized to fit. Also \\eval{x^2}{0}{1}.'],
+];
+function drawRules(){
+  const br=$('#builtinRows'); br.innerHTML='';
+  BUILTIN_DOCS.forEach(([src,doc])=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="code">${esc(src)}</td><td>${esc(doc)}</td><td class="pv"></td>`;
+    tr.querySelector('.pv').appendChild(pvNode(expand(src)));
+    br.appendChild(tr);
+  });
+  const mr=$('#macroRows'); mr.innerHTML='';
+  state.macros.forEach((m,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><div class="namecell">\\<input data-f="name" value="${esc(m.name||'')}" placeholder="name"></div></td>
+      <td><input type="number" min="0" max="9" data-f="args" value="${+m.args||0}"></td>
+      <td><input data-f="body" value="${esc(m.body||'')}" placeholder="\\mathbb{R}"></td>
+      <td class="pv"></td><td><button class="x" title="Remove">×</button></td>`;
+    const pv=()=>{ const ok=NAME_OK(m.name); tr.querySelector('[data-f=name]').classList.toggle('bad',!!m.name && !ok); tr.querySelector('.pv').replaceChildren(ok?pvNode(expand(macroExample(m))):''); };
+    tr.addEventListener('input', e=>{ const f=e.target.dataset.f; if(!f) return; m[f]= f==='args'? Math.max(0,Math.min(9,+e.target.value||0)) : e.target.value; rulesChanged(); pv(); });
+    tr.querySelector('.x').onclick=()=>{ state.macros.splice(i,1); rulesChanged(); drawRules(); };
+    mr.appendChild(tr); pv();
+  });
+  const sr=$('#shortRows'); sr.innerHTML='';
+  state.shorts.forEach((s,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input data-f="from" value="${esc(s.from||'')}" placeholder="->"></td>
+      <td><input data-f="to" value="${esc(s.to||'')}" placeholder="\\to"></td>
+      <td class="pv"></td><td><button class="x" title="Remove">×</button></td>`;
+    const pv=()=>tr.querySelector('.pv').replaceChildren(s.to?pvNode(s.to):'');
+    tr.addEventListener('input', e=>{ const f=e.target.dataset.f; if(!f) return; s[f]=e.target.value; rulesChanged(); pv(); });
+    tr.querySelector('.x').onclick=()=>{ state.shorts.splice(i,1); rulesChanged(); drawRules(); };
+    sr.appendChild(tr); pv();
+  });
+}
+function rulesChanged(){ rebuildRules(); save(); schedule(); if(state.palette && state.ptab===0) drawGrid(); }
+$('#addMacro').onclick=()=>{ state.macros.push({name:'',args:0,body:''}); drawRules(); const ins=$('#macroRows').querySelectorAll('[data-f=name]'); ins[ins.length-1].focus(); };
+$('#addShort').onclick=()=>{ state.shorts.push({from:'',to:''}); drawRules(); const ins=$('#shortRows').querySelectorAll('[data-f=from]'); ins[ins.length-1].focus(); };
+let resetArmed=null;
+$('#resetPlus').onclick=()=>{
+  const b=$('#resetPlus');
+  const off=()=>{ b.classList.remove('armed'); b.textContent='Reset to defaults'; resetArmed=null; };
+  if(!resetArmed){ b.classList.add('armed'); b.textContent='Really reset?'; resetArmed=setTimeout(off,3000); return; }
+  clearTimeout(resetArmed); off();
+  state.macros=clone(DEFAULT_MACROS); state.shorts=clone(DEFAULT_SHORTS); rulesChanged(); drawRules(); toast('LaTeX+ reset');
+};
+
+/* ================= mobile view switch ================= */
+document.querySelectorAll('.mobile-switch .btn').forEach(b=>b.onclick=()=>{
+  document.body.className='view-'+b.dataset.view;
+  document.querySelectorAll('.mobile-switch .btn').forEach(x=>x.classList.toggle('on',x===b));
+  if (b.dataset.view==='preview') render();
+});
+
+/* ================= boot ================= */
+rebuildRules();
+ed.value = cur().text;
+drawSheets();
+render();
+setPalette(!!state.palette);
+window.__mjReady = ()=>{ try { document.head.appendChild(MathJax.svgStylesheet()); } catch(e){} mjReady=true; render(); if(state.palette) drawTabs(); };
+if (window.MathJax && MathJax.tex2svg) window.__mjReady();
+try {
+  if ('serviceWorker' in navigator && location.protocol==='https:' && /github\.io$/.test(location.hostname))
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+} catch(e){}
+// test hook
+window.__mathpad = { expand, expandedSource, texDocument };
+})();
+</script>
+</body>
+</html>

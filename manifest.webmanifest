@@ -1,0 +1,11 @@
+{
+  "name": "MathPad",
+  "short_name": "MathPad",
+  "description": "A LaTeX scratchpad with a symbol palette and your own LaTeX+ shorthands.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f1ec",
+  "theme_color": "#0f6b63",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
